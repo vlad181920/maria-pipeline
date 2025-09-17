@@ -1,0 +1,77 @@
+import os, sys, json, glob, re
+from datetime import datetime
+
+AGENTS_DIR = os.path.join("artifacts","agents")
+os.makedirs(AGENTS_DIR, exist_ok=True)
+
+def safe_slug(s: str) -> str:
+    s = re.sub(r'\s+', '-', s.strip())
+    s = re.sub(r'[^A-Za-z0-9\-_А-Яа-яЁёІіЇїЄєҐґ]+', '-', s)
+    return s.strip('-') or "agent"
+
+def find_existing(title: str):
+    candidates = []
+    for cfg in glob.glob(os.path.join(AGENTS_DIR, "*", "config.json")):
+        try:
+            with open(cfg, "r", encoding="utf-8") as f:
+                j = json.load(f)
+            if j.get("title") == title and os.path.isdir(os.path.dirname(cfg)):
+                created = j.get("created") or ""
+                candidates.append((created, os.path.dirname(cfg), j))
+        except Exception:
+            pass
+    if not candidates:
+        return None
+    candidates.sort(reverse=True)  # найновіший першим
+    return candidates[0]
+
+def create_new(title: str, reason: str):
+    ts_dir = datetime.now().strftime("%Y%m%d_%H%M%S")
+    slug = safe_slug(title.replace(' ','-'))
+    dname = f"{ts_dir}_{slug}"
+    dpath = os.path.join(AGENTS_DIR, dname)
+    os.makedirs(os.path.join(dpath, "output"), exist_ok=True)
+    created_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cfg = {
+        "created": created_ts,
+        "title": title,
+        "reason": reason,
+        "status": "created",
+        "dir": dpath,
+    }
+    with open(os.path.join(dpath, "config.json"), "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+    with open(os.path.join(dpath, "log.jsonl"), "a", encoding="utf-8") as f:
+        f.write(json.dumps({"ts": created_ts, "event": "created", "reason": reason}, ensure_ascii=False) + "\n")
+    with open(os.path.join(dpath, "output", "README.md"), "w", encoding="utf-8") as f:
+        f.write(f"# {title}\n\nReason: {reason}\n")
+    idx = os.path.join(AGENTS_DIR, "index.jsonl")
+    with open(idx, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"created": created_ts, "title": title, "dir": dpath}, ensure_ascii=False) + "\n")
+    return cfg
+
+def main():
+    if len(sys.argv) < 3:
+        print(json.dumps({"ok": False, "err": "usage: subagent_launcher.py <title> <reason>"}))
+        sys.exit(1)
+    title = sys.argv[1]
+    reason = " ".join(sys.argv[2:])
+
+    existing = find_existing(title)
+    if existing:
+        created, dpath, j = existing
+        out = {
+            "created": j.get("created", created),
+            "title": title,
+            "reason": reason,
+            "status": "exists",
+            "dir": dpath
+        }
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return
+
+    cfg = create_new(title, reason)
+    print(json.dumps(cfg, ensure_ascii=False, indent=2))
+
+if __name__ == "__main__":
+    main()

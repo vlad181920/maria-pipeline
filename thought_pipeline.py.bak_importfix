@@ -1,0 +1,143 @@
+import os, sys
+os.chdir(os.path.dirname(__file__))
+try:
+    from subagent_launcher import launch_subagent as launch_subagent
+except Exception:
+    import os, sys, json, subprocess, re
+    def _parse_last_json(s):
+        try:
+            return json.loads(s)
+        except Exception:
+            m = re.search(r"\{.*\}\s*$", s, re.S)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    pass
+        return None
+    def launch_subagent(title, reason="", hold_secs=0, timeout=60):
+        script = os.path.join(os.path.dirname(__file__), "subagent_launcher.py")
+        cmd = [sys.executable, script, title]
+        if reason:
+            cmd += ["-r", reason]
+        if hold_secs:
+            cmd += ["--hold-secs", str(int(hold_secs))]
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+        out = (p.stdout or "").strip()
+        obj = _parse_last_json(out)
+        if obj is not None:
+            return obj
+        return {"ok": False, "returncode": p.returncode, "stdout": out, "stderr": p.stderr}
+import os, json, time, random, subprocess, sys
+from datetime import datetime
+from inner_dialogue import choose_with_inner_dialogue
+from thought_evaluator import evaluate_and_log
+from link_thoughts_to_goals import enqueue_goal
+try:
+    pass
+except Exception:
+    import os, sys, json, subprocess, re
+    def launch_subagent(title, reason="", hold_secs=0, timeout=60):
+        script = os.path.join(os.path.dirname(__file__), "subagent_launcher.py")
+        cmd = [sys.executable, script, title]
+        if reason:
+            cmd += ["-r", reason]
+        if hold_secs:
+            cmd += ["--hold-secs", str(int(hold_secs))]
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+        out = (p.stdout or "").strip()
+        try:
+            return json.loads(out)
+        except Exception:
+            m = re.search(r'\{.*\}\s*$', out, re.S)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    pass
+            return {"ok": False, "returncode": p.returncode, "stdout": out, "stderr": p.stderr}
+try:
+    _ = _sa.launch_subagent
+except Exception:
+    def _launch_fallback(title, reason="", hold_secs=0, timeout=60):
+        import os, sys, json, subprocess, re
+        script = os.path.join(os.path.dirname(__file__), "subagent_launcher.py")
+        cmd = [sys.executable, script, title]
+        if reason:
+            cmd += ["-r", reason]
+        if hold_secs:
+            cmd += ["--hold-secs", str(int(hold_secs))]
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+        txt = (p.stdout or "").strip()
+        try:
+            return json.loads(txt)
+        except Exception:
+            m = re.search(r'\{.*\}\s*$', txt, re.S)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    pass
+            return {"ok": False, "returncode": p.returncode, "stdout": txt, "stderr": p.stderr}
+    _sa.launch_subagent = _launch_fallback
+
+LOG_DIR = "artifacts/logs"
+DIALOGUES_DIR = "artifacts/dialogues"
+os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(DIALOGUES_DIR, exist_ok=True)
+PIPELINE_LOG = os.path.join(LOG_DIR, "pipeline.log")
+
+def _now():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def _run(cmd):
+    try:
+        subprocess.run(cmd, check=False)
+    except Exception:
+        pass
+
+def run_once():
+    topic = "Вибір дії після рефлексії"
+    options = ["Створити нову ціль", "Поглибити дослідження", "Запустити підагент"]
+    res = choose_with_inner_dialogue(topic, options, rounds=random.randint(2, 4))
+    thought = {
+        "id": f"th-{int(time.time())}",
+        "topic": f"{topic}: {res.get('winner','')}",
+        "impact": round(random.uniform(0.6, 1.0), 2),
+        "effort": round(random.uniform(0.3, 0.8), 2),
+        "risk": round(random.uniform(0.0, 0.3), 2),
+        "novelty": round(random.uniform(0.4, 0.9), 2),
+        "dialogue_file": res.get("dialogue_file"),
+        "confidence": res.get("confidence", 0.0)
+    }
+    eval_res = evaluate_and_log(thought)
+    created_goal = None
+    if eval_res.get("recommended"):
+        title = f"Автоген: {res.get('winner','Нова дія')}"
+        reason = f"score={eval_res['score']}, confidence={res.get('confidence',0.0)}"
+        prio = min(1.0, max(0.0, eval_res["score"]))
+        created_goal = enqueue_goal(title, reason, prio)
+        subagent = None
+        if 'підагент' in title.lower():
+            subagent = launch_subagent(title, reason)
+
+        _run([sys.executable, "goal_prioritizer.py"])
+        _run([sys.executable, "goal_attempts.py"])
+    line = {
+        "subagent": subagent,
+        "ts": _now(),
+        "winner": res.get("winner"),
+        "votes": res.get("votes", {}),
+        "confidence": res.get("confidence", 0.0),
+        "dialogue_file": res.get("dialogue_file"),
+        "eval": eval_res,
+        "goal": created_goal
+    }
+    with open(PIPELINE_LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps(line, ensure_ascii=False) + "\n")
+    _run([sys.executable, "tools/todo_tick.py"])
+    return line
+
+if __name__ == "__main__":
+    out = run_once()
+    print(json.dumps(out, ensure_ascii=False, indent=2))
