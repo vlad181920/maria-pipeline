@@ -121,3 +121,12 @@ Definition of Done:
 [$(date +%F' '%T)] nightly summary: ;- Думок/ітерацій сьогодні: 0;- Середній score думок: 0.0;- Цілей у backlog: 4;- Уроків у lessons.jsonl: 11 (по тегам: {'web': 10, 'video': 1, 'clean': 3});- Настрій: balanced;
 [2025-09-17 14:28] QA: quality_events=0, has_kb=1.0, next_step=true
 [2025-09-17 14:41] QA: quality_events=0, has_kb=1.0, next_step=true
+[$(date +%F' '%T)] nightly summary: ;- Думок/ітерацій сьогодні: 2;- Середній score думок: 0.553;- Топ-наміри:;  - Поглибити дослідження: 2;- Цілей у backlog: 4;
+[2025-09-18 20:00] Repo+CI, clean web_learn, subagent dedupe/lock, CLI launch, smoke
+- Репозиторій: vlad181920/maria-pipeline
+- CI: .github/workflows/ci.yml активний
+- Захист гілки main: обов'язковий CI, linear history, enforce_admins
+- Subagent: dedupe + файловий lock; пайплайн використовує CLI launch
+- Web Learn: clean-режим, теги ["web","clean"], без HTML у text
+- Smoke: tools/smoke.sh
+- Статуси/нічні скрипти перевірені
