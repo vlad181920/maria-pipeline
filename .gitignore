@@ -1,10 +1,37 @@
-artifacts/
+# Python
 __pycache__/
-*.pyc
-*.pid
-*.log
-.DS_Store
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual env
 .venv/
 venv/
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Env/config
 .env
 .env.*
+
+# Project artifacts & logs
+artifacts/
+artifacts/**/*
+!artifacts/.gitkeep
+memory/run_logs/
+*.log
+*.err
+*.out
+
+# Data dumps
+data/crawled/
