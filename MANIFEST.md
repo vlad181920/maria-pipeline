@@ -16,3 +16,6 @@
 ## 2025-09-24 — Експеримент 20250919_211414__micro-service-offer-audit-implementation
 - Активна хвиля: B ($29.0), wave=8
 - Див. metrics_history.jsonl та release/*
+## 2025-09-24 — Експеримент 20250919_211414__micro-service-offer-audit-implementation
+- Активна хвиля: A ($19.0), wave=9
+- Див. metrics_history.jsonl та release/*
