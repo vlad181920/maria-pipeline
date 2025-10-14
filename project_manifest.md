@@ -42,22 +42,27 @@
 - [ ] **`curl /health` = 200; `POST /api/chat` = JSON; JSONL пишеться**
 
 ## 5) АКТИВНИЙ БЛОК (поточний фокус)
-Блок 10 — Інтерфейси: локальний chat-API + звʼязка з CLI.
-Чому: потрібен стабільний робочий чат із памʼяттю діалогів як «єдиний вхід» до Марії.
+Блок 12 — Заробіток: Gumroad MVP (цифрові продукти).
 Definition of Done:
-- [x] `/health` 200 OK
-- [x] `/api/chat` повертає JSON
-- [x] Діалоги пишуться у `artifacts/chat/dialogue_YYYY-MM-DD.jsonl`
-- [x] Один uvicorn-інстанс з логом у `artifacts/logs/chat_api.out`
-- [ ] **CLI без мока** (`~/maria/bin/maria` викликає справжній мозок і друкує відповідь у stdout)
-- [ ] Тест: 10 підряд POST-запитів → 10 рядків (user/assistant) у JSONL без дублів/сміття
+- [x] Ідеї продуктів: tools/earn_gumroad/idea_miner.py → artifacts/gumroad/ideas.jsonl
+- [x] Генерація контенту: product_builder.py (гайд .md) + cover.svg
+- [x] Пакування: package_product.py → listing.json, assets.zip (≥1 файл)
+- [x] Smoke: generate 3 продукти ⇒ створено 3 каталоги в artifacts/gumroad/* з listing.json і assets.zip
+### DoD — Шар автономного заробітку (агностичний)
+- [x] Signals → artifacts/earn/signals.jsonl
+- [x] Strategy → artifacts/earn/strategy.json
+- [x] Experiment scaffold → artifacts/earn/experiments/*
+- [x] Metrics report → artifacts/reports/earnings_daily_YYYY-MM-DD.json
 
-## 6) Наступні 3 кроки
+## 6)  Наступні 3 кроки
 1) Заміна мока: `~/maria/bin/maria` → виклик `python3 "$MARIA_HOME/maria_brain.py" chat "<текст>"` (stdout = тільки відповідь).
 2) Додати обмеження часу/памʼяті в мозку для chat-виклику + короткий лог-трейс у `artifacts/logs/brain_chat.log`.
 3) Оновити MANIFEST (цей файл): відмітити DoD виконаним, додати журнал змін.
 
 ## 7) Журнал змін (свіже зверху)
+- [2025-09-23 21:57] EARN: decision=scale; згенеровано onepager + mini_guide_v1; канал=Owned longform (тип, без платформ); policy=OK.
+
+- [2025-09-19 21:37] DoD (EARN layer): Signals→Strategy→Experiment→Metrics — мінімальний E2E готовий.
 - **[AUTO-STAMP]** Chat-API піднято на 127.0.0.1:8765; JSON відповіді працюють; JSONL пишеться; додано мок-CLI `~/maria/bin/maria`.
 
 ## 8) Технічні конвенції
@@ -147,3 +152,51 @@ Definition of Done:
 - artifacts/lessons.jsonl
 - artifacts/agents/20250903_213256_Автоген-Запустити-підагент
 - artifacts/reports/
+
+- [2025-09-18 21:04] Підтверджено: CLI працює, KB інтегровано у chat, інжектор можливостей активний.
+
+- [2025-09-18 21:15] Підтверджено: CLI працює; KB інтегровано; after_chat hook + router активні.
+
+- [2025-09-18 21:21] Блок 4 у роботі: KB зібрано; router активний у CLI+API; smoke запущено.
+
+- [2025-09-18 21:25] chat() викликає after_hook: router гарантовано працює у CLI+API.
+
+- [2025-09-18 21:39] Блок 4 DoD: KB працює; router додає думки; smoke пройдено за audit_queue.jsonl.
+
+- [2025-09-18 21:41] Block 4 DoD підтверджено (audit>=10). Активовано Block 2 (динамічне мислення).
+
+- [2025-09-18 21:46] Block 2 DoD: пройдено смоук; типи=['plan', 'research', 'analysis', 'action', 'hypothesis', 'learn']; total=57.
+
+- [2025-09-18 21:48] Активовано Block 3 (самонавчання).
+
+- [2025-09-18 21:58] Block 3 DoD: уроки з логів+думок працюють; KB оновлюється (перевірено smoke).
+
+- [2025-09-18 22:02] Block 7 smoke: повний цикл цілей виконано.
+
+- [2025-09-18 22:04] Активовано Block 12: Gumroad MVP.
+
+- [2025-09-18 22:06] Block 12 Gumroad MVP: smoke пройдено (3/3/3).
+[$(date +%F' '%T)] nightly summary: ;- Думок/ітерацій сьогодні: 0;- Середній score думок: 0.0;- Цілей у backlog: 4;- Уроків у lessons.jsonl: 358 (по тегам: {'web': 21, 'video': 1, 'clean': 14, 'error': 232, 'autolearn': 336, 'learn': 104});- Настрій: balanced;
+
+## 5) АКТИВНИЙ БЛОК (поточний фокус)
+Блок 12 — Earnings Autonomy Layer (платформо-агностичний заробіток).
+
+Чому: Марія має **сама** обирати канали/платформи/методи заробітку, а ми даємо загальні інструменти мислення, знань, експериментів і метрик.
+
+Definition of Done (без сайт-специфіки):
+- [ ] Signals: `tools/earn_autonomy/signals_miner.py` → `artifacts/earn/signals.jsonl` (≥10 сигналів, з вагами та походженням).
+- [ ] Strategy: `tools/earn_autonomy/strategy_selector.py` → `artifacts/earn/strategy.json` (гіпотеза каналу, очікувана цінність, ризики).
+- [ ] Experiment Runner: `tools/earn_autonomy/experiment_runner.py` → `artifacts/earn/experiments/*/result.json` (мінімум 1 завершений експеримент з артефактом цінності).
+- [ ] Metrics & Policy: `tools/earn_autonomy/metrics_report.py` → `artifacts/reports/earnings_daily_YYYY-MM-DD.json` (дохід/витрати/час/конверсії + рішення: continue/stop/scale).
+- [ ] Policy Check: у коді **нема** жодних сайт-специфічних селекторів/URL (автотест `tools/earn_autonomy/policy_check.py`).
+
+
+## 6) Наступні 3 кроки
+1) **Signals → Strategy:** зібрати нейтральні сигнали та обрати стратегію (без згадок платформ у коді).
+2) **Experiment Runner:** реалізувати запуск мікроексперименту + лог + артефакт цінності.
+3) **Metrics & Stop-loss:** щоденний звіт + правила зупинки/масштабування; оновити MANIFEST.
+
+
+- [2025-09-19 20:33] Активовано 'Earnings Autonomy Layer'; прибрано сайт-специфічні згадки з DoD (розд. 5–6).
+\n- [2025-09-19 21:09] DoD: Policy Check пройдено (active layer без сайт-специфіки).\n[$(date +%F' '%T)] nightly summary: ;- Думок/ітерацій сьогодні: 0;- Середній score думок: 0.0;- Цілей у backlog: 4;- Уроків у lessons.jsonl: 358 (по тегам: {'web': 21, 'video': 1, 'clean': 14, 'error': 232, 'autolearn': 336, 'learn': 104});- Настрій: balanced;
+[$(date +%F' '%T)] nightly summary: ;- Думок/ітерацій сьогодні: 0;- Середній score думок: 0.0;- Цілей у backlog: 4;- Уроків у lessons.jsonl: 358 (по тегам: {'web': 21, 'video': 1, 'clean': 14, 'error': 232, 'autolearn': 336, 'learn': 104});- Настрій: balanced;
