@@ -32,7 +32,7 @@ def upload():
     if out.stderr.strip(): log("uploader_err: "+out.stderr.strip())
     rep_path=(ROOT/"upload_report.json")
     if not rep_path.exists(): return []
-    try: 
+    try:
         rep=json.loads(rep_path.read_text(encoding="utf-8"))
         return rep.get("items",[])
     except: return []

@@ -1,7 +1,7 @@
 import sys, os, json, hashlib, time
 exp=os.path.abspath(sys.argv[1])
 p=os.path.join(exp,"events.jsonl")
-if not os.path.isfile(p): 
+if not os.path.isfile(p):
     print(p); sys.exit(0)
 seen=set(); out=[]
 with open(p,encoding="utf-8") as f:

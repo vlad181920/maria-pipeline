@@ -19,7 +19,7 @@ def _seen():
     try:
         with open(QFILE,"r",encoding="utf-8") as f:
             for line in f:
-                try: j=json.loads(line); t=j.get("topic",""); 
+                try: j=json.loads(line); t=j.get("topic","");
                 except: t=""
                 if t: s.add(_h(t))
     except: pass
@@ -59,7 +59,7 @@ def tick():
     pol=_load_json(POL,{})
     metr=_load_json(METR,{"counts":{},"total":0})
     backlog=_count_lines(QFILE)
-    if backlog>=pol.get("backlog_soft_cap",50): 
+    if backlog>=pol.get("backlog_soft_cap",50):
         with open(LOG,"a",encoding="utf-8") as f: f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] SKIP backlog={backlog}\n")
         return 0
     tt=_choose_type(pol,metr)

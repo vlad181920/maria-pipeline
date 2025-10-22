@@ -13,7 +13,7 @@ now = datetime.datetime.utcnow()
 cutoff = now - datetime.timedelta(hours=2)
 
 def parse_ts(s):
-    try: 
+    try:
         return datetime.datetime.fromisoformat(str(s).replace('Z',''))
     except:
         return None

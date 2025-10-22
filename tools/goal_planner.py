@@ -24,11 +24,11 @@ def main():
     for line in lines:
         try:
             j=json.loads(line)
-        except: 
+        except:
             continue
         ttype=(j.get("type") or "").strip()
         topic=(j.get("topic") or "").strip()
-        if not topic or ttype not in ALLOW: 
+        if not topic or ttype not in ALLOW:
             continue
         dig = hid(ttype+"|"+topic)
         if dig in seen:

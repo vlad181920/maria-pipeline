@@ -40,7 +40,7 @@ def run_agent(agent_dir: str):
         f.write("\n## Кроки виконання\n1) Уточнення вимог\n2) Чернетка\n3) Самоперевірка\n4) Вивід артефакту\n")
         f.write("\n## Самоперевірка (порожньо)\n- [ ] Якість\n- [ ] Повнота\n- [ ] Узгодженість\n")
     # оновити статус і залогувати
-    cfg["status"]="drafted"; 
+    cfg["status"]="drafted";
     with open(cfg_path,"w",encoding="utf-8") as f: json.dump(cfg,f,ensure_ascii=False,indent=2)
     with open(os.path.join(agent_dir,"log.jsonl"),"a",encoding="utf-8") as f:
         f.write(json.dumps({"ts":now(),"event":"drafted","draft":os.path.relpath(draft)},ensure_ascii=False)+"\n")

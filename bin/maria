@@ -1,0 +1,59 @@
+#!/bin/zsh
+set -euo pipefail
+ROOT="${0:A:h:h}"   # корінь репо (папка з bin/)
+cd "$ROOT"
+
+EXP="artifacts/earn/experiments/20250919_211414__micro-service-offer-audit-implementation"
+TARGET_PRICE="${TARGET_PRICE:-29}"
+
+usage() {
+  cat <<'H'
+Марія CLI — ChatOps
+  maria status                  — показати стан
+  maria release                 — згенерувати реліз
+  maria report                  — швидкий звіт
+  maria health                  — health перевірка
+  maria loop start [--sec N]    — запустити launchd-агент з інтервалом N (def 300)
+  maria loop stop               — зупинити агента
+  maria loop once               — один прогін без агента
+  maria switch A|B PRICE        — переключити варіант і ціну
+  maria logs                    — хвости launchd.out / launchd.err
+  maria tail                    — tail -f логів
+H
+}
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+  status)  exec scripts/exp_status.sh "$EXP" ;;
+  release) exec scripts/exp_release.sh "$EXP" ;;
+  report)  exec scripts/quick_report.sh "$EXP" ;;
+  health)  exec scripts/health.sh ;;
+  loop)
+    sub="${1:-}"; shift || true
+    case "$sub" in
+      start)
+        if [[ "${1:-}" == "--sec" ]]; then INTERVAL="${2:-300}"; shift 2; else INTERVAL=300; fi
+        exec scripts/launchd_apply.sh --workdir "$PWD" --interval "$INTERVAL" --target-price "$TARGET_PRICE"
+        ;;
+      stop)
+        launchctl unload "$HOME/Library/LaunchAgents/com.maria.earn.loop.plist" 2>/dev/null || true
+        launchctl remove com.maria.earn.loop 2>/dev/null || true
+        echo "loop agent stopped"
+        ;;
+      once) exec scripts/loop_cycle.sh --sleep 0 --target-price "$TARGET_PRICE" ;;
+      *) usage; exit 2 ;;
+    esac
+    ;;
+  switch)
+    variant="${1:-}"; price="${2:-}"
+    [[ -z "${variant}" || -z "${price}" ]] && { usage; exit 2; }
+    exec scripts/auto_switch.sh "$EXP" "$price" "$variant"
+    ;;
+  logs)
+    tail -n 100 "$PWD/artifacts/earn/logs/launchd.out" 2>/dev/null || true
+    tail -n 100 "$PWD/artifacts/earn/logs/launchd.err" 2>/dev/null || true
+    ;;
+  tail) tail -f "$PWD/artifacts/earn/logs/launchd.out" "$PWD/artifacts/earn/logs/launchd.err" ;;
+  ""|-h|--help|help) usage ;;
+  *) usage; exit 2 ;;
+esac

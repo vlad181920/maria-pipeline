@@ -88,7 +88,7 @@ def relevance_score(text, patterns):
             score += 1.0
     return score
 
-def clamp(x, lo, hi): 
+def clamp(x, lo, hi):
     return max(lo, min(hi, x))
 
 def pick_top_signals(signals, k=12):

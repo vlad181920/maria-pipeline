@@ -200,3 +200,29 @@ Definition of Done (без сайт-специфіки):
 - [2025-09-19 20:33] Активовано 'Earnings Autonomy Layer'; прибрано сайт-специфічні згадки з DoD (розд. 5–6).
 \n- [2025-09-19 21:09] DoD: Policy Check пройдено (active layer без сайт-специфіки).\n[$(date +%F' '%T)] nightly summary: ;- Думок/ітерацій сьогодні: 0;- Середній score думок: 0.0;- Цілей у backlog: 4;- Уроків у lessons.jsonl: 358 (по тегам: {'web': 21, 'video': 1, 'clean': 14, 'error': 232, 'autolearn': 336, 'learn': 104});- Настрій: balanced;
 [$(date +%F' '%T)] nightly summary: ;- Думок/ітерацій сьогодні: 0;- Середній score думок: 0.0;- Цілей у backlog: 4;- Уроків у lessons.jsonl: 358 (по тегам: {'web': 21, 'video': 1, 'clean': 14, 'error': 232, 'autolearn': 336, 'learn': 104});- Настрій: balanced;
+
+---
+
+## Operational Runbook — Maria CLI (short)
+
+Див. повну версію в **MANIFEST.md** → *“Operational Runbook — Maria CLI”*.
+
+### Основні команди
+- `maria health` — повна перевірка (deps, схеми, черги, статус).
+- `maria status` — короткий стан експерименту.
+- `maria release` — згенерувати реліз (md у artifacts/.../release/).
+- `maria report` — швидкий звіт у artifacts/earn/reports/.
+
+### Earn loop (launchd)
+- `maria loop start [--sec 300]` — старт агента.
+- `maria loop once` — один ручний прогін.
+- `maria loop stop` — зупинити агента.
+- Логи: `maria logs` (останнє) / `maria tail` (live).
+
+### A/B
+- `maria switch A 29` / `maria switch B 25`
+
+### CI/PR
+- `main` — protected (вимагає CI).
+- Пуш у `feat/**`, відкриваємо PR.
+- Мінімальний CI: `.github/workflows/ci.yml`.

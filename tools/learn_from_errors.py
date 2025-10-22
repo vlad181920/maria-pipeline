@@ -10,7 +10,7 @@ for name in sorted(os.listdir(LOGDIR)):
     p=os.path.join(LOGDIR,name)
     try:
         txt=open(p,"r",encoding="utf-8",errors="ignore").read()
-    except: 
+    except:
         continue
     for m in pat.finditer(txt):
         block=m.group(0).strip()

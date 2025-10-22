@@ -16,7 +16,7 @@ HOOKS = [
 ]
 HOOK = re.compile("|".join(HOOKS), flags=re.I|re.U)
 
-def digest(txt): 
+def digest(txt):
     return hashlib.sha1((txt or "").encode("utf-8","ignore")).hexdigest()[:16]
 
 def kb_docs():

@@ -21,7 +21,7 @@ def main():
         for i,tmpl in enumerate(TEMPLATES, start=1):
             title=f"[{g.get('type')}] {tmpl}: {g.get('title')}"
             key=(g["id"], title)
-            if key in have: 
+            if key in have:
                 continue
             sub={
                 "id": str(uuid.uuid4()),

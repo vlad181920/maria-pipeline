@@ -49,7 +49,7 @@ def main():
     for exp_dir in sorted(glob.glob(os.path.join(EXP_ROOT, "*"))):
         rpath = os.path.join(exp_dir, "result.json")
         r = load_result(rpath)
-        if not r: 
+        if not r:
             continue
         readme = os.path.join(exp_dir, "README.md")
         bud_h, bud_cash = parse_budget_from_readme(readme)
