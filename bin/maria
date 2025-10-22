@@ -1,4 +1,15 @@
 #!/bin/zsh
+
+# --- ad-hoc subcommand: price <N> ---
+if [ "$1" = "price" ]; then
+  if [ -z "$2" ]; then echo "usage: maria price <NUMBER>" >&2; exit 1; fi
+  mkdir -p "$HOME/maria/config"
+  printf "TARGET_PRICE=%s\n" "$2" > "$HOME/maria/config/earn.env"
+  launchctl kickstart -k "gui/$(id -u)/com.maria.guard" 2>/dev/null || true
+  echo "price set to $2; guard will reconcile"
+  exit 0
+fi
+# --- end price subcommand ---
 set -euo pipefail
 ROOT="${0:A:h:h}"   # корінь репо (папка з bin/)
 cd "$ROOT"
