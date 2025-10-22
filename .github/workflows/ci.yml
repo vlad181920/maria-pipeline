@@ -15,14 +15,34 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install deps
+      - name: Install deps (jsonschema)
         run: |
           python -m pip install --upgrade pip
           pip install jsonschema
 
-      - name: Sanity checks
+      - name: Sanity: project layout
         run: |
           test -f schemas/event.schema.json
           test -f schemas/command.schema.json
           test -f schemas/metrics_summary.schema.json
-          python -c "import json, sys; print('ok')"
+          test -f scripts/health.sh
+          test -f tools/bus_dispatcher.py
+
+      - name: Quick schema smoke (no fail if artifacts absent)
+        run: |
+          set -e
+          if [ -f artifacts/earn/experiments/20250919_211414__micro-service-offer-audit-implementation/metrics_summary.json ]; then
+            python - <<'PY'
+import json, sys
+from jsonschema import validate
+ms = json.load(open("artifacts/earn/experiments/20250919_211414__micro-service-offer-audit-implementation/metrics_summary.json"))
+schema = json.load(open("schemas/metrics_summary.schema.json"))
+validate(ms, schema)
+print("metrics_summary.json OK")
+PY
+          else
+            echo "No runtime artifacts in CI (expected). Skipping."
+          fi
+
+      - name: Done
+        run: echo "CI OK"
