@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os, sys, json, time, argparse, datetime, random
 ART_REVIEW="artifacts/stats/review.jsonl"
-def nowz(): return datetime.datetime.utcnow().replace(microsecond=0).isoformat()+"Z"
+def nowz(): return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()+"Z"
 def ensure(): os.makedirs(os.path.dirname(ART_REVIEW), exist_ok=True)
 def tick():
     ensure()

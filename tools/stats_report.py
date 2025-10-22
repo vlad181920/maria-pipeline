@@ -7,10 +7,10 @@ STATS_DIR = os.path.join(ART, "stats")
 THOUGHTS_Q = os.path.join(ART, "thoughts", "queue.jsonl")
 REFLECTIONS = os.path.join(STATS_DIR, "reflections.jsonl")
 INSIGHTS_APPLIED = os.path.join(STATS_DIR, "insights_applied.jsonl")
-DAILY = os.path.join(STATS_DIR, f"daily_report_{datetime.datetime.utcnow().date().isoformat()}.md")
+DAILY = os.path.join(STATS_DIR, f"daily_report_{datetime.datetime.now(datetime.timezone.utc).date().isoformat()}.md")
 
 def now_utc():
-    return datetime.datetime.utcnow()
+    return datetime.datetime.now(datetime.timezone.utc)
 
 def parse_ts(ts):
     try:
@@ -64,7 +64,7 @@ def compute_windows():
 
 def write_md(data):
     lines=[]
-    lines.append(f"# Daily KPI — {datetime.datetime.utcnow().date().isoformat()} (generated {now_utc().replace(microsecond=0).isoformat()}Z)")
+    lines.append(f"# Daily KPI — {datetime.datetime.now(datetime.timezone.utc).date().isoformat()} (generated {now_utc().replace(microsecond=0).isoformat()}Z)")
     lines.append("## Summary")
     lines.append("| Metric | Value |")
     lines.append("|---|---:|")

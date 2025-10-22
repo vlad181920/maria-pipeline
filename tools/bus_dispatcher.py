@@ -10,7 +10,7 @@ CMD_SCHEMA_OLD = os.path.join(ROOT, "schemas", "command.schema.json")   # мож
 DEFAULT_EXP = "artifacts/earn/experiments/20250919_211414__micro-service-offer-audit-implementation"
 
 def utcnow():
-    return datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def load_json(p):
     with open(p, encoding="utf-8") as f:

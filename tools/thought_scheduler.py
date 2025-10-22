@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os, sys, json, argparse, random, datetime
 ART_THOUGHTS="artifacts/thoughts/queue.jsonl"
-def nowz(): return datetime.datetime.utcnow().replace(microsecond=0).isoformat()+"Z"
+def nowz(): return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()+"Z"
 def ensure(): os.makedirs(os.path.dirname(ART_THOUGHTS), exist_ok=True)
 def append(path, obj):
     with open(path,"a",encoding="utf-8") as f:

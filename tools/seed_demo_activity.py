@@ -7,7 +7,7 @@ thoughts_dir = os.path.join(base,'artifacts','thoughts')
 os.makedirs(stats, exist_ok=True)
 os.makedirs(thoughts_dir, exist_ok=True)
 
-now = datetime.datetime.utcnow()
+now = datetime.datetime.now(datetime.timezone.utc)
 def ts(offset=0):
     return (now - datetime.timedelta(seconds=offset)).replace(microsecond=0).isoformat()+'Z'
 

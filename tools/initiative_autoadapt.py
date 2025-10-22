@@ -3,7 +3,7 @@ ART_THOUGHTS="artifacts/thoughts/queue.jsonl"
 ART_LOG="artifacts/logs/initiative_daemon.log"
 MOOD_PATH="artifacts/mood.json"
 TOPICS=["self_initiated","curiosity_probe","hypothesis","maintenance","earning_probe","learning_application","reflection_next_action"]
-def nowz(): return datetime.datetime.utcnow().replace(microsecond=0).isoformat()+"Z"
+def nowz(): return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()+"Z"
 def ensure():
     os.makedirs(os.path.dirname(ART_THOUGHTS), exist_ok=True)
     os.makedirs(os.path.dirname(ART_LOG), exist_ok=True)

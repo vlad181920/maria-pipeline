@@ -18,7 +18,7 @@ cfg_path=os.path.join(exp,"config.json")
 cfg=read_json(cfg_path,{})
 prev_wave=int(cfg.get("wave",0))
 wave=prev_wave+1
-ts=datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+ts=datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 cfg.update({"wave":wave,"active_variant":args.variant,"price":args.price,"updated_at_utc":ts,"experiment_id":os.path.basename(exp)})
 write_json(cfg_path,cfg)
 waves_path=os.path.join(exp,"waves.jsonl")

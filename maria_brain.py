@@ -9,7 +9,7 @@ QUEUE_FILE = os.path.join(MARIA_HOME, "artifacts", "thoughts", "queue.jsonl")
 LOG_FILE = os.path.join(MARIA_HOME, "artifacts", "logs", "brain_core.log")
 
 def _now():
-    return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat() + "Z"
 
 def _log(event, **kw):
     rec = {"ts": _now(), "event": event}
