@@ -226,3 +226,36 @@ Definition of Done (без сайт-специфіки):
 - `main` — protected (вимагає CI).
 - Пуш у `feat/**`, відкриваємо PR.
 - Мінімальний CI: `.github/workflows/ci.yml`.
+
+---
+
+## 🧩 Guard Module — Автоматичний нагляд та самовідновлення
+
+**Призначення:**
+Guard контролює стан агента `com.maria.earn.loop`, проводить регулярну перевірку здоров’я системи (`health check`) кожні ~3 хвилини.
+Якщо знайдено проблему (некоректні схеми, пошкоджені файли, зависання loop), guard:
+- запускає авто-лікування (міграції схем JSON, очищення черг);
+- перезапускає loop-агента через `launchd`;
+- веде лог усіх дій.
+
+**Локація:**
+- Скрипт: `scripts/loop_guard.sh`
+- Сервіс: `~/Library/LaunchAgents/com.maria.guard.plist`
+- Логи: `artifacts/earn/logs/guard.out`, `artifacts/earn/logs/guard.err`
+
+**Команди керування:**
+\`\`\`bash
+# Перезапустити guard вручну
+launchctl kickstart -k "gui/$(id -u)/com.maria.guard"
+
+# Зупинити guard
+launchctl unload "$HOME/Library/LaunchAgents/com.maria.guard.plist"
+
+# Переглядати логи у реальному часі
+tail -f "$HOME/maria/artifacts/earn/logs/guard.out" "$HOME/maria/artifacts/earn/logs/guard.err"
+\`\`\`
+
+**Статус:** ✅ активний
+Guard перевіряє цикл `loop` кожні 180 секунд, авто-відновлення працює стабільно.
+
+---
