@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPTS_DIR="$ROOT_DIR/scripts"
 EARN_DIR="$ROOT_DIR/artifacts/earn"
 EXPERIMENTS_DIR="$EARN_DIR/experiments"
+CONFIG_DIR="$ROOT_DIR/config"
+ENV_FILE="$CONFIG_DIR/earn.env"
 
 usage() {
   cat <<'USAGE'
@@ -19,6 +21,7 @@ Usage:
   maria logs
   maria tail
   maria switch <A|B> <PRICE>
+  maria price <PRICE_USD>
 USAGE
 }
 
@@ -30,7 +33,6 @@ cmd_health() {
     echo "(no scripts/health.sh, skipping)"
   fi
   echo
-
   echo "## earn health (business + loop/guard)"
   if [[ -x "$SCRIPTS_DIR/earn_health.py" ]]; then
     "$SCRIPTS_DIR/earn_health.py"
@@ -45,7 +47,6 @@ cmd_status() {
     echo "no experiments found in $EXPERIMENTS_DIR"
     exit 0
   fi
-
   echo "Experiment: $latest_dir"
   if [[ -f "$EXPERIMENTS_DIR/$latest_dir/metrics_summary.json" ]]; then
     echo "metrics_summary:"
@@ -80,7 +81,6 @@ loop_start() {
     interval_sec="$2"
     shift 2
   fi
-
   if [[ -x "$SCRIPTS_DIR/loop_cycle.sh" ]]; then
     echo "(TODO) configure launchctl with interval $interval_sec"
   else
@@ -152,6 +152,26 @@ PY
   echo "switched to variant=$variant price=$price (USD)"
 }
 
+cmd_price() {
+  new_price="${1:-}"
+  if [[ -z "$new_price" ]]; then
+    echo "usage: maria price <PRICE_USD>"
+    exit 1
+  fi
+
+  if [[ ! -d "$CONFIG_DIR" ]]; then
+    mkdir -p "$CONFIG_DIR"
+  fi
+
+  echo "TARGET_PRICE=$new_price" > "$ENV_FILE"
+
+  if [[ -x "$SCRIPTS_DIR/set_price.sh" ]]; then
+    "$SCRIPTS_DIR/set_price.sh" "$new_price"
+  else
+    echo "(no set_price.sh, wrote TARGET_PRICE=$new_price)"
+  fi
+}
+
 cmd="${1:-}"
 shift || true
 
@@ -173,6 +193,7 @@ case "$cmd" in
   logs) cmd_logs "$@" ;;
   tail) cmd_tail "$@" ;;
   switch) cmd_switch "$@" ;;
+  price) cmd_price "$@" ;;
   ""|help|-h|--help) usage ;;
   *) echo "unknown command: $cmd"; usage; exit 1 ;;
 esac

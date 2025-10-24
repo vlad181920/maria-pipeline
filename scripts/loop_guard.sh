@@ -16,8 +16,12 @@ cd "$REPO_ROOT"
 
 TMP_OUT="/tmp/maria_health.out"
 TMP_ERR="/tmp/maria_health.err"
+TMP_PRICE="/tmp/maria_target_price"
 LOG_DIR="$REPO_ROOT/artifacts/earn/logs"
-mkdir -p "$LOG_DIR"
+CONFIG_DIR="$REPO_ROOT/config"
+ENV_FILE="$CONFIG_DIR/earn.env"
+
+mkdir -p "$LOG_DIR" "$CONFIG_DIR"
 
 log "guard start (cwd=$REPO_ROOT)"
 
@@ -42,16 +46,30 @@ else
   fi
 fi
 
-USER_ID2="$(id -u)"
-launchctl print "gui/${USER_ID2}/com.maria.earn.loop" 2>/dev/null \
+launchctl print "gui/${USER_ID}/com.maria.earn.loop" 2>/dev/null \
   | awk '/--target-price/{print $0}' \
-  | head -n1 > "$TMP_OUT.targetprice" 2>/dev/null || true
+  | head -n1 > "$TMP_PRICE" 2>/dev/null || true
 
-if [[ -s "$TMP_OUT.targetprice" ]]; then
-  target_price_launchd="$(awk '{last=$0}END{print last}' "$TMP_OUT.targetprice")"
+if [[ -s "$TMP_PRICE" ]]; then
+  launchd_price="$(awk '{last=$0}END{print last}' "$TMP_PRICE")"
 else
-  target_price_launchd="unknown"
+  launchd_price="unknown"
 fi
 
-log "pricing (launchd target-price) = $target_price_launchd"
+current_target="unknown"
+if [[ -f "$ENV_FILE" ]]; then
+  current_target="$(grep '^TARGET_PRICE=' "$ENV_FILE" | head -n1 | cut -d'=' -f2- || true)"
+fi
+
+log "pricing launchd=$launchd_price target_env=$current_target"
+
+if [[ "$current_target" != "unknown" && "$launchd_price" != "$current_target" ]]; then
+  if [[ -x "$REPO_ROOT/bin/maria" ]]; then
+    log "price drift detected ($launchd_price != $current_target) -> maria price $current_target"
+    "$REPO_ROOT/bin/maria" price "$current_target" >>"$TMP_ERR" 2>&1 || err "maria price failed"
+  else
+    err "maria binary missing, cannot sync price"
+  fi
+fi
+
 log "guard end"
