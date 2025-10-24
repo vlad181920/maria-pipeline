@@ -16,7 +16,7 @@ cd "$REPO_ROOT"
 
 TMP_OUT="/tmp/maria_health.out"
 TMP_ERR="/tmp/maria_health.err"
-TMP_PRICE="/tmp/maria_target_price"
+TMP_PRICE_RAW="/tmp/maria_target_price_raw"
 LOG_DIR="$REPO_ROOT/artifacts/earn/logs"
 CONFIG_DIR="$REPO_ROOT/config"
 ENV_FILE="$CONFIG_DIR/earn.env"
@@ -47,18 +47,18 @@ else
 fi
 
 launchctl print "gui/${USER_ID}/com.maria.earn.loop" 2>/dev/null \
-  | awk '/--target-price/{print $0}' \
-  | head -n1 > "$TMP_PRICE" 2>/dev/null || true
+  | awk '/--target-price/{found=1;next} found{print $0;exit}' \
+  > "$TMP_PRICE_RAW" 2>/dev/null || true
 
-if [[ -s "$TMP_PRICE" ]]; then
-  launchd_price="$(awk '{last=$0}END{print last}' "$TMP_PRICE")"
+if [[ -s "$TMP_PRICE_RAW" ]]; then
+  launchd_price="$(tr -d '[:space:]' < "$TMP_PRICE_RAW")"
 else
   launchd_price="unknown"
 fi
 
 current_target="unknown"
 if [[ -f "$ENV_FILE" ]]; then
-  current_target="$(grep '^TARGET_PRICE=' "$ENV_FILE" | head -n1 | cut -d'=' -f2- || true)"
+  current_target="$(grep '^TARGET_PRICE=' "$ENV_FILE" | head -n1 | cut -d'=' -f2- | tr -d '[:space:]' || true)"
 fi
 
 log "pricing launchd=$launchd_price target_env=$current_target"
