@@ -259,3 +259,144 @@ tail -f "$HOME/maria/artifacts/earn/logs/guard.out" "$HOME/maria/artifacts/earn/
 Guard перевіряє цикл `loop` кожні 180 секунд, авто-відновлення працює стабільно.
 
 ---
+
+### Earn Autonomy Runtime (loop + guard + CI)
+
+#### Компоненти
+
+1. \`loop\` — основний earnings-цикл
+   - файл-водій: \`bin/maria loop ...\`
+   - робить:
+     - рахує метрики (\`tools/metrics_aggregate.py\`)
+     - вирішує, чи треба перемикати оффер/ціну (\`scripts/auto_switch.sh\`)
+     - публікує реліз (release/\*.md через \`scripts/exp_release.sh\`)
+     - пушить command-и в bus (\`tools/bus_dispatcher.py\`)
+     - генерує звіт (\`bin/maria report\`, зберігає в \`artifacts/earn/reports/\*.md\`)
+   - пише логи в \`artifacts/earn/logs/loop_*.log\`
+
+2. \`guard\` — нагляд і самовідновлення
+   - файл: \`scripts/loop_guard.sh\`
+   - запускається launchd-агентом \`~/Library/LaunchAgents/com.maria.guard.plist\`
+   - що робить кожні ~3 хв:
+     - викликає health (\`./bin/maria health\`)
+     - перевіряє, що \`com.maria.earn.loop\` живий (тобто loop-агент не впав)
+     - якщо впав — перезапускає
+     - якщо health зламався (битий JSON, schema mismatch) — намагається само-вилікувати
+     - слідкує за TARGET_PRICE (див. нижче) і тримає її в синхроні
+   - всі свої стани логить у:
+     - \`artifacts/earn/logs/guard.out\`
+     - \`artifacts/earn/logs/guard.err\`
+     - дублює останній health у \`/tmp/maria_health.out\` / \`/tmp/maria_health.err\`
+
+3. \`launchd\` агенти
+   - \`com.maria.earn.loop.plist\` — періодичний ран \`bin/maria loop once\`
+   - \`com.maria.guard.plist\` — стріляє \`loop_guard.sh\`
+   - обидва виконуються через \`/usr/bin/env -i ...\` тобто чисте оточення
+     - тому guard робить bootstrap env вручну (HOME, PATH, PYTHONPATH, LANG тощо)
+   - керування:
+     - перевантажити guard зараз:
+       \`\`\`bash
+       launchctl kickstart -k "gui/$(id -u)/com.maria.guard"
+       \`\`\`
+     - вимкнути guard:
+       \`\`\`bash
+       launchctl unload "$HOME/Library/LaunchAgents/com.maria.guard.plist"
+       \`\`\`
+     - перевірити стан loop-агента:
+       \`\`\`bash
+       launchctl print "gui/$(id -u)/com.maria.earn.loop" >/dev/null && echo "loop: OK" || echo "loop: NOT RUNNING"
+       \`\`\`
+
+#### CLI (\`bin/maria\`)
+
+Команда \`maria\` — це наш ChatOps інтерфейс. Основні сабкоманди:
+
+\`\`\`text
+maria status        — показати стан експерименту (wave, variant, price)
+maria release       — згенерувати реліз (release_*.md)
+maria report        — швидкий звіт (зберігає у artifacts/earn/reports/)
+maria health        — повна health-перевірка (схеми, файли, bus)
+
+maria loop once     — один ручний цикл earnings без launchd
+maria loop start    — (WIP) автозапуск агента через launchctl
+maria loop stop     — (WIP) стоп агента через launchctl
+
+maria switch A|B P  — поставити варіант (A/B) і ціну (P), пушне команду у bus
+maria price <N>     — оновити ціну (TARGET_PRICE) і дати guard самостійно синхронізувати
+maria logs          — показати останні хвости логів loop/guard
+maria tail          — tail -f за логами runtime
+\`\`\`
+
+Стан експерименту друкується як:
+- \`wave=<N> variant=A price=$29.0 | A: L=10 C=6 CR=60% R=$114.0 | B: ...\`
+- p-value, z-score
+- better_variant / should_switch
+
+#### Керування ціною в рантаймі
+
+- Поточна цільова ціна лежить у \`config/earn.env\` як \`TARGET_PRICE=...\`
+- Команда:
+  \`\`\`bash
+  maria price 31
+  \`\`\`
+  робить:
+  - оновлює \`config/earn.env\`
+  - викликає \`launchctl kickstart -k gui/$(id -u)/com.maria.guard\`
+  - guard при наступному ранi підхоплює нову TARGET_PRICE
+
+Тобто ціну тепер міняємо через CLI, не руками в коді.
+
+#### Health / самовідновлення
+
+\`./bin/maria health\` перевіряє:
+- python3 / jq / gh / jsonschema встановлені
+- наявність усіх схем \`schemas/*.json\`
+- валідність \`metrics_summary.json\` проти \`schemas/metrics_summary.schema.json\`
+- валідність bus (events.jsonl, commands.jsonl)
+- що існує поточний експеримент в \`artifacts/earn/experiments/.../\`
+- що release/ і reports/ оновлюються
+
+guard викликає health і логує щось типу:
+\`[guard] 2025-10-22T20:40:33Z health OK\`
+\`[guard] ... agent running\`
+\`[guard] ... stdout log fresh (92s)\`
+
+#### Логи
+
+- loop:
+  - \`artifacts/earn/logs/loop_*.log\`
+- guard:
+  - \`artifacts/earn/logs/guard.out\`
+  - \`artifacts/earn/logs/guard.err\`
+- останній health snapshot:
+  - \`/tmp/maria_health.out\`
+  - \`/tmp/maria_health.err\`
+
+Це перше місце куди дивитися, якщо щось не так.
+
+#### CI / захист main
+
+- У репо є GitHub Actions workflow: \`.github/workflows/ci.yml\`
+- Мета: дати GitHub статус-чек під назвою **CI**, бо main захищений правилом, що вимагає зелений чек "CI".
+- Workflow робить:
+  - checkout
+  - ставить Python 3.11
+  - ставить \`jsonschema\`
+  - sanity: перевіряє, що ключові файли існують (схеми, health.sh, bus_dispatcher.py)
+  - smoke-валидацію schemas → metrics_summary.json (якщо артефакт існує)
+  - друкує "CI OK"
+
+- У PR на main ми вже включили \`--auto\` squash merge. Репо забороняє мерджити без зеленого чека "CI", і вимагає linear history та захист main. Після того як екшен віддасть зелень і буде рев’ю, main отримає всі ці автоскрипти (loop, guard, maria CLI, launchd, автозвіти).
+
+#### Стан перед наступним етапом
+
+- loop працює автономно
+- guard працює, ресуректить loop, трекає health, вміє міняти TARGET_PRICE
+- `maria` CLI дає ручний контроль і репорти
+- артефакти (releases, reports, logs) пишуться в репо під \`artifacts/earn/\`
+- PR у main відкритий і чекає зелений CI
+
+Далі:
+- добити репортинг у CI так, щоб GitHub відображав чек саме як "CI" і пропустив merge
+- додати в CLI `maria loop start/stop`, щоб не лазити в launchctl руками
+- оновити маніфест, якщо зміниться структура експериментів/reports

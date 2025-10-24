@@ -1,66 +1,57 @@
-#!/bin/zsh
-# robust guard runner for launchd env -i
+#!/bin/bash
+set -euo pipefail
 
-# --- bootstrap env (ніяких помилок на unset) ---
+ts_iso() { date +"%Y-%m-%dT%H:%M:%S%z"; }
+log() { echo "[guard] $(ts_iso) $*"; }
+err() { echo "[guard][ERR] $(ts_iso) $*" >&2; }
+
 export HOME="${HOME:-/Users/macbook}"
-export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-export LANG="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
+export PATH="${PATH:-/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin}"
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 
-# опційно допоможемо імпортам для user-site (включно з 3.13)
-export PYTHONPATH="$HOME/Library/Python/3.13/lib/python/site-packages:$HOME/Library/Python/3.11/lib/python/site-packages:$HOME/Library/Python/3.10/lib/python/site-packages:$PYTHONPATH"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
 
-set -Eeuo pipefail
+TMP_OUT="/tmp/maria_health.out"
+TMP_ERR="/tmp/maria_health.err"
+LOG_DIR="$REPO_ROOT/artifacts/earn/logs"
+mkdir -p "$LOG_DIR"
 
-WORKDIR="${WORKDIR:-$HOME/maria}"
-LOGDIR="$WORKDIR/artifacts/earn/logs"
-mkdir -p "$LOGDIR"
-OUT="/tmp/maria_health.out"
-ERR="/tmp/maria_health.err"
+log "guard start (cwd=$REPO_ROOT)"
 
-ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
-
-cd "$WORKDIR" || { echo "[guard] $(ts) ERROR: no WORKDIR $WORKDIR" >>"$LOGDIR/guard.err"; exit 1; }
-
-# гарантуємо jsonschema (в user site)
-if ! python3 -c "import jsonschema" >/dev/null 2>&1; then
-  python3 -m pip install --user --quiet jsonschema || true
+if ./bin/maria health >"$TMP_OUT" 2>"$TMP_ERR"; then
+  log "health executed OK"
+else
+  err "health returned non-zero"
 fi
 
-# health
-if ./scripts/health.sh >"$OUT" 2>"$ERR"; then
-  echo "[guard] $(ts) health OK" >>"$LOGDIR/guard.out"
-else
-  echo "[guard] $(ts) health FAIL → намагаюсь автолікування (міграції схем)" >>"$LOGDIR/guard.out"
-  EV="$WORKDIR/artifacts/earn/experiments/20250919_211414__micro-service-offer-audit-implementation/events.jsonl"
-  if [ -f "$EV" ]; then
-    python3 tools/events_migrate_schema.py "$EV" || true
+USER_ID="$(id -u)"
+if launchctl print "gui/${USER_ID}/com.maria.earn.loop" >/dev/null 2>&1; then
+  if launchctl kickstart -k "gui/${USER_ID}/com.maria.earn.loop" 2>>"$TMP_ERR"; then
+    log "loop kickstart OK"
   else
-    echo "[guard] $(ts) WARN: no events.jsonl at $EV" >>"$LOGDIR/guard.out"
+    err "loop kickstart failed"
   fi
-  python3 tools/commands_migrate_schema.py || true
-  if ./scripts/health.sh >"$OUT" 2>"$ERR"; then
-    echo "[guard] $(ts) health OK після авто-міграцій" >>"$LOGDIR/guard.out"
+else
+  if launchctl load "$HOME/Library/LaunchAgents/com.maria.earn.loop.plist" 2>>"$TMP_ERR"; then
+    log "loop load OK"
   else
-    echo "[guard] $(ts) health STILL FAIL — залишаю логи у $OUT,$ERR" >>"$LOGDIR/guard.out"
+    err "loop load failed"
   fi
 fi
 
-# слідкуємо за loop-агентом
-if ! launchctl print "gui/$(id -u)/com.maria.earn.loop" >/dev/null 2>&1; then
-  echo "[guard] $(ts) launchd job missing → re-apply" >>"$LOGDIR/guard.out"
-  "$WORKDIR/scripts/launchd_apply.sh" --workdir "$WORKDIR" --interval 300 --target-price 29 >/dev/null 2>&1 || true
-fi
+USER_ID2="$(id -u)"
+launchctl print "gui/${USER_ID2}/com.maria.earn.loop" 2>/dev/null \
+  | awk '/--target-price/{print $0}' \
+  | head -n1 > "$TMP_OUT.targetprice" 2>/dev/null || true
 
-# статус + “свіжість” логів
-if launchctl print "gui/$(id -u)/com.maria.earn.loop" >/dev/null 2>&1; then
-  echo "[guard] $(ts) agent running" >>"$LOGDIR/guard.out"
+if [[ -s "$TMP_OUT.targetprice" ]]; then
+  target_price_launchd="$(awk '{last=$0}END{print last}' "$TMP_OUT.targetprice")"
 else
-  echo "[guard] $(ts) agent NOT running" >>"$LOGDIR/guard.out"
-fi
-if [ -f "$WORKDIR/artifacts/earn/logs/launchd.out" ]; then
-  age=$(( $(date +%s) - $(stat -f %m "$WORKDIR/artifacts/earn/logs/launchd.out") ))
-  echo "[guard] $(ts) stdout log fresh (${age}s)" >>"$LOGDIR/guard.out"
+  target_price_launchd="unknown"
 fi
 
-echo "[guard] $(ts) guard done." >>"$LOGDIR/guard.out"
+log "pricing (launchd target-price) = $target_price_launchd"
+log "guard end"
