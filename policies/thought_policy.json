@@ -1,0 +1,6 @@
+{
+  "types": ["analysis","plan","learn","hypothesis","action"],
+  "weights": {"analysis":1.0,"plan":1.2,"learn":1.0,"hypothesis":0.9,"action":0.8},
+  "backlog_soft_cap": 50,
+  "min_gap_seconds": 5
+}

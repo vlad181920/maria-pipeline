@@ -35,3 +35,11 @@ memory/run_logs/
 
 # Data dumps
 data/crawled/
+# earn artifacts & logs
+artifacts/
+bus/
+*.log
+*.out
+*.err
+# local launchd artifacts
+*.plist

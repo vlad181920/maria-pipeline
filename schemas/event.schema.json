@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Event",
+  "type": "object",
+  "required": ["ts_utc", "type", "schema_ver"],
+  "properties": {
+    "ts_utc": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "lead",
+        "conversion",
+        "sale",
+        "purchase",
+        "wave_switched",
+        "release_published",
+        "error"
+      ]
+    },
+    "variant": { "type": "string", "enum": ["A", "B"] },
+    "amount": { "type": "number", "minimum": 0 },
+    "exp_path": { "type": "string" },
+    "file": { "type": "string" },
+    "dup_key": { "type": "string" },
+    "source": { "type": "string" },
+    "session_id": { "type": "string" },
+    "order_id": { "type": "string" },
+    "meta": { "type": "object" },
+    "schema_ver": { "type": "string", "pattern": "^v\\d+$" }
+  },
+  "additionalProperties": false
+}

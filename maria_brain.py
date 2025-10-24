@@ -1,3 +1,5 @@
+from tools.after_chat_hook import hook as after_hook
+from tools.kb import search
 import os, json, datetime, re
 
 MARIA_HOME = os.environ.get("MARIA_HOME", os.path.expanduser("~/Desktop/Марія"))
@@ -7,7 +9,7 @@ QUEUE_FILE = os.path.join(MARIA_HOME, "artifacts", "thoughts", "queue.jsonl")
 LOG_FILE = os.path.join(MARIA_HOME, "artifacts", "logs", "brain_core.log")
 
 def _now():
-    return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat() + "Z"
 
 def _log(event, **kw):
     rec = {"ts": _now(), "event": event}
@@ -61,6 +63,12 @@ def _collect_knowledge():
     return results
 
 def chat(text):
+    try:
+        after_hook(text)
+    except Exception:
+        pass
+    kb_hits = search(text, k=3)
+    kb_note = '\n'.join([h.get('preview','')[:280] for h in kb_hits])
     base = f"Марія: почула — {text}"
     plan = "Крок 1: зафіксувати запит і перевірити наявні нотатки/інсайти. Крок 2: поставити 1–2 уточнюючі питання й зафіксувати відповіді в інсайтах."
     parap = f"Ти питаєш: «{text.strip()}»."

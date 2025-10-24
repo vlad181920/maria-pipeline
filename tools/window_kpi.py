@@ -1,5 +1,5 @@
 import os, json, datetime
-def now(): return datetime.datetime.utcnow()
+def now(): return datetime.datetime.now(datetime.timezone.utc)
 def within(ts,sec,ref):
     try: t=datetime.datetime.fromisoformat(str(ts).replace('Z',''))
     except: return False

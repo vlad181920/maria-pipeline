@@ -9,11 +9,11 @@ paths = {
     "insights_applied": os.path.join(stats,'insights_applied.jsonl'),
     "thoughts_queue": os.path.join(thoughts_dir,'queue.jsonl'),
 }
-now = datetime.datetime.utcnow()
+now = datetime.datetime.now(datetime.timezone.utc)
 cutoff = now - datetime.timedelta(hours=2)
 
 def parse_ts(s):
-    try: 
+    try:
         return datetime.datetime.fromisoformat(str(s).replace('Z',''))
     except:
         return None

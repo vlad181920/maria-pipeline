@@ -4,7 +4,7 @@ import os, json, argparse, datetime, random
 STORE = "artifacts/mood.json"
 
 def nowz():
-    return datetime.datetime.utcnow().replace(microsecond=0).isoformat()+"Z"
+    return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()+"Z"
 
 def clamp01(x):
     return max(0.0, min(1.0, float(x)))

@@ -1,0 +1,199 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPTS_DIR="$ROOT_DIR/scripts"
+EARN_DIR="$ROOT_DIR/artifacts/earn"
+EXPERIMENTS_DIR="$EARN_DIR/experiments"
+CONFIG_DIR="$ROOT_DIR/config"
+ENV_FILE="$CONFIG_DIR/earn.env"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  maria health
+  maria status
+  maria release
+  maria report
+  maria loop start [--sec N]
+  maria loop once
+  maria loop stop
+  maria logs
+  maria tail
+  maria switch <A|B> <PRICE>
+  maria price <PRICE_USD>
+USAGE
+}
+
+cmd_health() {
+  echo "## system health"
+  if [[ -x "$SCRIPTS_DIR/health.sh" ]]; then
+    "$SCRIPTS_DIR/health.sh" || true
+  else
+    echo "(no scripts/health.sh, skipping)"
+  fi
+  echo
+  echo "## earn health (business + loop/guard)"
+  if [[ -x "$SCRIPTS_DIR/earn_health.py" ]]; then
+    "$SCRIPTS_DIR/earn_health.py"
+  else
+    echo "earn_health.py not found or not executable"
+  fi
+}
+
+cmd_status() {
+  latest_dir="$(ls -1t "$EXPERIMENTS_DIR" 2>/dev/null | head -n1 || true)"
+  if [[ -z "$latest_dir" ]]; then
+    echo "no experiments found in $EXPERIMENTS_DIR"
+    exit 0
+  fi
+  echo "Experiment: $latest_dir"
+  if [[ -f "$EXPERIMENTS_DIR/$latest_dir/metrics_summary.json" ]]; then
+    echo "metrics_summary:"
+    cat "$EXPERIMENTS_DIR/$latest_dir/metrics_summary.json"
+  fi
+  if [[ -f "$EXPERIMENTS_DIR/$latest_dir/config.json" ]]; then
+    echo
+    echo "config:"
+    cat "$EXPERIMENTS_DIR/$latest_dir/config.json"
+  fi
+}
+
+cmd_release() {
+  if [[ -x "$SCRIPTS_DIR/exp_release.sh" ]]; then
+    "$SCRIPTS_DIR/exp_release.sh"
+  else
+    echo "no exp_release.sh"
+  fi
+}
+
+cmd_report() {
+  if [[ -x "$SCRIPTS_DIR/quick_report.sh" ]]; then
+    "$SCRIPTS_DIR/quick_report.sh"
+  else
+    echo "no quick_report.sh"
+  fi
+}
+
+loop_start() {
+  local interval_sec="300"
+  if [[ "${1:-}" == "--sec" && -n "${2:-}" ]]; then
+    interval_sec="$2"
+    shift 2
+  fi
+  if [[ -x "$SCRIPTS_DIR/loop_cycle.sh" ]]; then
+    echo "(TODO) configure launchctl with interval $interval_sec"
+  else
+    echo "loop_cycle.sh missing"
+  fi
+}
+
+loop_once() {
+  if [[ -x "$SCRIPTS_DIR/loop_cycle.sh" ]]; then
+    "$SCRIPTS_DIR/loop_cycle.sh" --once
+  else
+    echo "loop_cycle.sh missing"
+  fi
+}
+
+loop_stop() {
+  launchctl unload "$HOME/Library/LaunchAgents/com.maria.earn.loop.plist" 2>/dev/null || true
+}
+
+cmd_logs() {
+  tail -n 100 "$EARN_DIR/logs/guard.out" "$EARN_DIR/logs/guard.err" 2>/dev/null || true
+  echo
+  tail -n 100 "$EARN_DIR/logs/"*.log 2>/dev/null || true
+}
+
+cmd_tail() {
+  tail -f "$EARN_DIR/logs/guard.out" "$EARN_DIR/logs/guard.err" "$EARN_DIR/logs/"*.log 2>/dev/null
+}
+
+cmd_switch() {
+  variant="${1:-}"
+  price="${2:-}"
+
+  if [[ -z "$variant" || -z "$price" ]]; then
+    echo "usage: maria switch <A|B> <PRICE_USD>"
+    exit 1
+  fi
+
+  latest_dir="$(ls -1t "$EXPERIMENTS_DIR" 2>/dev/null | head -n1 || true)"
+  if [[ -z "$latest_dir" ]]; then
+    echo "no experiments found"
+    exit 1
+  fi
+
+  cfg="$EXPERIMENTS_DIR/$latest_dir/config.json"
+  if [[ ! -f "$cfg" ]]; then
+    echo "no config.json in $latest_dir"
+    exit 1
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
+    tmp="$(mktemp)"
+    jq --arg v "$variant" --argjson p "$price" '.active_variant=$v | .active_price_usd=$p' "$cfg" > "$tmp"
+    mv "$tmp" "$cfg"
+  else
+    python3 - "$cfg" "$variant" "$price" <<'PY'
+import sys,json
+path, variant, price = sys.argv[1:]
+data=json.load(open(path,encoding="utf-8"))
+data["active_variant"]=variant
+try:
+    data["active_price_usd"]=float(price)
+except:
+    data["active_price_usd"]=price
+json.dump(data,open(path,"w",encoding="utf-8"),ensure_ascii=False,indent=2)
+PY
+  fi
+
+  echo "switched to variant=$variant price=$price (USD)"
+}
+
+cmd_price() {
+  new_price="${1:-}"
+  if [[ -z "$new_price" ]]; then
+    echo "usage: maria price <PRICE_USD>"
+    exit 1
+  fi
+
+  if [[ ! -d "$CONFIG_DIR" ]]; then
+    mkdir -p "$CONFIG_DIR"
+  fi
+
+  echo "TARGET_PRICE=$new_price" > "$ENV_FILE"
+
+  if [[ -x "$SCRIPTS_DIR/set_price.sh" ]]; then
+    "$SCRIPTS_DIR/set_price.sh" "$new_price"
+  else
+    echo "(no set_price.sh, wrote TARGET_PRICE=$new_price)"
+  fi
+}
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  health) cmd_health "$@" ;;
+  status) cmd_status "$@" ;;
+  release) cmd_release "$@" ;;
+  report) cmd_report "$@" ;;
+  loop)
+    sub="${1:-}"
+    shift || true
+    case "$sub" in
+      start) loop_start "$@" ;;
+      once)  loop_once "$@" ;;
+      stop)  loop_stop "$@" ;;
+      *) echo "usage: maria loop {start|once|stop}"; exit 1 ;;
+    esac
+    ;;
+  logs) cmd_logs "$@" ;;
+  tail) cmd_tail "$@" ;;
+  switch) cmd_switch "$@" ;;
+  price) cmd_price "$@" ;;
+  ""|help|-h|--help) usage ;;
+  *) echo "unknown command: $cmd"; usage; exit 1 ;;
+esac

@@ -40,7 +40,7 @@ def import_subtitles(path: str, title: str = ""):
     lines = []
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
-            if "-->" in line: 
+            if "-->" in line:
                 continue
             if line.strip().isdigit():
                 continue

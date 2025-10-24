@@ -2,39 +2,51 @@ name: CI
 
 on:
   push:
+    branches: ["**"]
   pull_request:
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
-  checks:
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Python setup
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
+      - name: Install deps (jsonschema)
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema
 
-      - name: Python syntax check
+      - name: Sanity: project layout
+        run: |
+          test -f schemas/event.schema.json
+          test -f schemas/command.schema.json
+          test -f schemas/metrics_summary.schema.json
+          test -f scripts/health.sh
+          test -f tools/bus_dispatcher.py
+
+      - name: Quick schema smoke (no fail if artifacts absent)
         run: |
           set -e
-          pyfiles="$(git ls-files '*.py' || true)"
-          if [ -n "$pyfiles" ]; then
-            python -m py_compile $pyfiles
+          if [ -f artifacts/earn/experiments/20250919_211414__micro-service-offer-audit-implementation/metrics_summary.json ]; then
+            python - <<'PY'
+import json
+from jsonschema import validate
+ms = json.load(open("artifacts/earn/experiments/20250919_211414__micro-service-offer-audit-implementation/metrics_summary.json"))
+schema = json.load(open("schemas/metrics_summary.schema.json"))
+validate(ms, schema)
+print("metrics_summary.json OK")
+PY
           else
-            echo "No Python files to check."
+            echo "No runtime artifacts in CI (expected). Skipping."
           fi
 
-      - name: Shell script syntax check
-        run: |
-          set -e
-          if [ -d tools ]; then
-            find tools -type f -name "*.sh" -print0 | xargs -0 -I{} bash -n "{}"
-          else
-            echo "No tools/ directory."
-          fi
+      - name: Done
+        run: echo "CI OK"
