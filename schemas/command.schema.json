@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Command",
+  "type": "object",
+  "required": ["ts_utc", "action", "schema_ver"],
+  "properties": {
+    "ts_utc": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "aggregate_metrics",
+        "publish_release",
+        "switch_variant",
+        "generate_report",
+        "sync_manifest",
+        "validate_schema"
+      ]
+    },
+    "args": { "type": "object" },
+    "initiator": { "type": "string" },
+    "schema_ver": { "type": "string", "pattern": "^v\\d+$" }
+  },
+  "additionalProperties": false
+}

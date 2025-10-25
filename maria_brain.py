@@ -1,3 +1,5 @@
+from tools.after_chat_hook import hook as after_hook
+from tools.kb import search
 import os, json, datetime, re
 
 MARIA_HOME = os.environ.get("MARIA_HOME", os.path.expanduser("~/Desktop/Марія"))
@@ -61,6 +63,12 @@ def _collect_knowledge():
     return results
 
 def chat(text):
+    try:
+        after_hook(text)
+    except Exception:
+        pass
+    kb_hits = search(text, k=3)
+    kb_note = '\n'.join([h.get('preview','')[:280] for h in kb_hits])
     base = f"Марія: почула — {text}"
     plan = "Крок 1: зафіксувати запит і перевірити наявні нотатки/інсайти. Крок 2: поставити 1–2 уточнюючі питання й зафіксувати відповіді в інсайтах."
     parap = f"Ти питаєш: «{text.strip()}»."

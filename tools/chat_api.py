@@ -1,3 +1,4 @@
+from tools.after_chat_hook import hook
 from fastapi import FastAPI
 from pydantic import BaseModel
 from datetime import datetime, date
@@ -44,6 +45,21 @@ def health():
 
 @app.post("/api/chat")
 def chat(inp: ChatIn):
+    try:
+        _t=""
+        for _k in ("text","message","q","prompt"):
+            try:
+                _t = locals().get(_k) or _t
+            except:
+                pass
+        if not _t:
+            try:
+                _t = payload.get("text") if isinstance(payload, dict) else _t
+            except:
+                pass
+        hook(_t)
+    except:
+        pass
     ts = datetime.now().isoformat(timespec="seconds")
     append_jsonl({"ts": ts, "role": "user", "text": inp.user})
     reply = maria_reply(inp.user)
