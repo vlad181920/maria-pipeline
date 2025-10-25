@@ -1,0 +1,242 @@
+#!/bin/bash
+# Maria CLI
+# high-level control surface for earning loop, reporting, A/B pricing, etc.
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPTS_DIR="$ROOT_DIR/scripts"
+EARN_DIR="$ROOT_DIR/artifacts/earn"
+EXPERIMENTS_DIR="$EARN_DIR/experiments"
+
+# --- helper: print usage
+usage() {
+  cat <<'USAGE'
+Maria CLI
+
+Usage:
+  maria health               # повна перевірка системи + бізнес-стан
+  maria status               # короткий стан експерименту
+  maria release              # згенерувати реліз (markdown у artifacts/earn/experiments/*/release/)
+  maria report               # згенерувати швидкий звіт у artifacts/earn/reports/
+  maria loop start [--sec N] # запустити loop-агента через launchd з інтервалом
+  maria loop once            # один ручний цикл
+  maria loop stop            # зупинити loop-агента
+  maria logs                 # показати останні 100 рядків логів loop/guard
+  maria tail                 # live tail логів loop/guard
+  maria switch <A|B> <PRICE> # увімкнути варіант A/B з даною ціною (USD)
+
+USAGE
+}
+
+# --- cmd_health
+cmd_health() {
+  # 1. системні перевірки, які вже були у тебе раніше
+  #    (тут став свій існуючий health, якщо він у тебе є окремим скриптом типу scripts/health.sh)
+  #    я поставлю плейсхолдер, щоб нічого не ламати
+  echo "## system health"
+  if [[ -x "$SCRIPTS_DIR/health.sh" ]]; then
+    "$SCRIPTS_DIR/health.sh" || true
+  else
+    echo "(no scripts/health.sh, skipping)"
+  fi
+  echo
+
+  # 2. бізнес-здоров'я (нове)
+  if [[ -x "$SCRIPTS_DIR/earn_health.py" ]]; then
+    echo "## earn health (business + loop/guard)"
+    "$SCRIPTS_DIR/earn_health.py"
+  else
+    echo "earn_health.py not found or not executable"
+  fi
+}
+
+# --- cmd_status
+cmd_status() {
+  # короткий стан активного експерименту
+  # читаємо найсвіжіший експеримент
+  latest_dir="$(ls -1t "$EXPERIMENTS_DIR" 2>/dev/null | head -n1 || true)"
+  if [[ -z "$latest_dir" ]]; then
+    echo "no experiments found in $EXPERIMENTS_DIR"
+    exit 0
+  fi
+
+  echo "Experiment: $latest_dir"
+  if [[ -f "$EXPERIMENTS_DIR/$latest_dir/metrics_summary.json" ]]; then
+    echo "metrics_summary:"
+    cat "$EXPERIMENTS_DIR/$latest_dir/metrics_summary.json"
+  fi
+  if [[ -f "$EXPERIMENTS_DIR/$latest_dir/config.json" ]]; then
+    echo
+    echo "config:"
+    cat "$EXPERIMENTS_DIR/$latest_dir/config.json"
+  fi
+}
+
+# --- cmd_release
+cmd_release() {
+  # припускаємо, що в тебе вже є скрипт який генерує release/*.md
+  if [[ -x "$SCRIPTS_DIR/gen_release.sh" ]]; then
+    "$SCRIPTS_DIR/gen_release.sh"
+  else
+    echo "no gen_release.sh, TODO implement"
+  fi
+}
+
+# --- cmd_report
+cmd_report() {
+  # припускаємо, що в тебе є збір швидкого звіту
+  if [[ -x "$SCRIPTS_DIR/gen_report.sh" ]]; then
+    "$SCRIPTS_DIR/gen_report.sh"
+  else
+    echo "no gen_report.sh, TODO implement"
+  fi
+}
+
+# --- loop helpers
+loop_start() {
+  # інтервал може задаватись через арг --sec N, ти це вже робив у MANIFEST
+  local interval_sec="300"
+  if [[ "${1:-}" == "--sec" && -n "${2:-}" ]]; then
+    interval_sec="$2"
+    shift 2
+  fi
+
+  # тут має бути твій реальний механізм завантаження com.maria.earn.loop
+  # наприклад через launchctl load + запис інтервалу кудись
+  if [[ -x "$SCRIPTS_DIR/loop_start.sh" ]]; then
+    "$SCRIPTS_DIR/loop_start.sh" "$interval_sec"
+  else
+    echo "TODO: implement loop_start with $interval_sec sec"
+  fi
+}
+
+loop_once() {
+  # один ручний прогін: напряму викликаємо python-скрипт, який робить цикл заробітку
+  if [[ -x "$SCRIPTS_DIR/loop_once.sh" ]]; then
+    "$SCRIPTS_DIR/loop_once.sh"
+  else
+    echo "TODO: implement loop_once"
+  fi
+}
+
+loop_stop() {
+  # зупинка launchd job
+  if [[ -x "$SCRIPTS_DIR/loop_stop.sh" ]]; then
+    "$SCRIPTS_DIR/loop_stop.sh"
+  else
+    echo "TODO: implement loop_stop (launchctl unload ...)"
+  fi
+}
+
+cmd_logs() {
+  echo "=== last 100 lines of guard ==="
+  tail -n 100 "$EARN_DIR/logs/guard.out" "$EARN_DIR/logs/guard.err" 2>/dev/null || true
+  echo
+  echo "=== last 100 lines of loop ==="
+  tail -n 100 "$EARN_DIR/logs/"*.log 2>/dev/null || true
+}
+
+cmd_tail() {
+  echo "=== live tail guard + loop ==="
+  tail -f "$EARN_DIR/logs/guard.out" "$EARN_DIR/logs/guard.err" "$EARN_DIR/logs/"*.log 2>/dev/null
+}
+
+cmd_switch() {
+  variant="${1:-}"
+  price="${2:-}"
+
+  if [[ -z "$variant" || -z "$price" ]]; then
+    echo "usage: maria switch <A|B> <PRICE_USD>"
+    exit 1
+  fi
+
+  # оновити активний варіант/ціну в конфізі експерименту
+  latest_dir="$(ls -1t "$EXPERIMENTS_DIR" 2>/dev/null | head -n1 || true)"
+  if [[ -z "$latest_dir" ]]; then
+    echo "no experiments found"
+    exit 1
+  fi
+
+  cfg="$EXPERIMENTS_DIR/$latest_dir/config.json"
+  if [[ ! -f "$cfg" ]]; then
+    echo "no config.json in $latest_dir"
+    exit 1
+  fi
+
+  # оновлюємо через jq якщо є, якщо jq нема — зробимо просту заміну python-скриптом
+  if command -v jq >/dev/null 2>&1; then
+    tmp="$(mktemp)"
+    jq --arg v "$variant" --argjson p "$price" '.active_variant=$v | .active_price_usd=$p' "$cfg" > "$tmp"
+    mv "$tmp" "$cfg"
+  else
+    python3 - "$cfg" "$variant" "$price" <<'PY'
+import sys, json
+path, variant, price = sys.argv[1:]
+data = json.load(open(path,encoding="utf-8"))
+data["active_variant"] = variant
+try:
+    data["active_price_usd"] = float(price)
+except:
+    data["active_price_usd"] = price
+json.dump(data, open(path,"w",encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+  fi
+
+  echo "switched to variant=$variant price=$price (USD)"
+}
+
+# --- dispatch
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  health)
+    cmd_health "$@"
+    ;;
+  status)
+    cmd_status "$@"
+    ;;
+  release)
+    cmd_release "$@"
+    ;;
+  report)
+    cmd_report "$@"
+    ;;
+  loop)
+    sub="${1:-}"
+    shift || true
+    case "$sub" in
+      start)
+        loop_start "$@"
+        ;;
+      once)
+        loop_once "$@"
+        ;;
+      stop)
+        loop_stop "$@"
+        ;;
+      *)
+        echo "usage: maria loop {start|once|stop}"
+        exit 1
+        ;;
+    esac
+    ;;
+  logs)
+    cmd_logs "$@"
+    ;;
+  tail)
+    cmd_tail "$@"
+    ;;
+  switch)
+    cmd_switch "$@"
+    ;;
+  ""|help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "unknown command: $cmd"
+    usage
+    exit 1
+    ;;
+esac
